@@ -1,0 +1,20 @@
+# gradle
+.gradle
+build/
+gradle/
+settings.gradle
+
+# eclipse
+.project
+.classpath
+.settings/
+lib/
+bin/
+!/src/main/catalina/bin/
+coverage-report/
+
+# Intellij
+.idea/
+*.iml
+*.ipr
+*.iws
