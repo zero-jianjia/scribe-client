@@ -35,15 +35,20 @@ public class ScribeManager extends AbstractManager {
         this.scribe_port = Integer.valueOf(args[1]);
     }
 
-    public synchronized void startup() {
+    public void startup() {
+        if (transport != null) {
+            //NOTE: when scribe process is killed (scribe process is running before), 
+            //      transport is still open.
+            transport.close();
+        }
+        
         try {
             Socket socket = new Socket(scribe_ip, scribe_port);
             TSocket tSocket = new TSocket(socket);
             transport = new TFramedTransport(tSocket);
+
         } catch (IOException e) {
-            LOGGER.error("Socket can not connection, ip = {}, port = {}.",
-                    scribe_ip, scribe_port,
-                    e);
+            LOGGER.error("Socket can not connection, ip = {}, port = {}.", scribe_ip, scribe_port, e);
             e.printStackTrace();
         } catch (TTransportException e) {
             LOGGER.error("TSocket can not create.", e);
@@ -51,7 +56,6 @@ public class ScribeManager extends AbstractManager {
         }
 
         if (transport != null) {
-            System.out.println(transport.isOpen());
             TBinaryProtocol protocol = new TBinaryProtocol(transport, false, false);
             client = new Scribe.Client(protocol, protocol);
         }
@@ -67,30 +71,20 @@ public class ScribeManager extends AbstractManager {
         }
     }
 
-    /*
-    * Connect to scribe if not open, reconnect if failed.
-    */
-    public void isConnect() {
-        if (transport != null && transport.isOpen())
-            return;
-
-        if (transport != null && !transport.isOpen()) {
-            transport.close();
-        }
-        startup();
-    }
-
     public synchronized void send(final String msg) throws TException {
-        isConnect();
+//        isConnect();
         final LogEntry entry = new LogEntry(category, msg);
         if (client != null)
             try {
                 client.send_Log(Arrays.asList(entry));
             } catch (TException ex) {
-                transport.close();
-                startup();//force to reconnect,when scribe process is killed, transport is still open.
+                startup();//force to reconnect.
                 throw ex;
             }
+        else {
+            startup();
+            throw new TException();
+        }
     }
 
     @Override
