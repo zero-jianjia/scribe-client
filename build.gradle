@@ -1,0 +1,25 @@
+group 'com.sina.scribe'
+version '1.0-SNAPSHOT'
+
+apply plugin: 'java'
+
+[compileJava, compileTestJava]*.sourceCompatibility = '1.8'
+[compileJava, compileTestJava, javadoc]*.options*.encoding = "UTF-8"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile 'org.apache.thrift:libthrift:0.9.1'
+    compile 'org.apache.thrift:libfb303:0.9.1'
+
+    compile 'org.apache.logging.log4j:log4j-slf4j-impl:2.6'
+    compile 'org.apache.logging.log4j:log4j-web:2.6'
+
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+}
+task "mkdirs" << {
+    sourceSets*.java.srcDirs*.each { it.mkdirs() }
+    sourceSets*.resources.srcDirs*.each { it.mkdirs() }
+}

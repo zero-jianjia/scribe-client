@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<Configuration status="debug" >
+    <Appenders>
+        <Scribe name="scribe" host="log_test" category="afd">
+            <PatternLayout pattern="%m%n"/>
+        </Scribe>
+
+        <!--<Flume name="flume" >-->
+
+        <!--</Flume>-->
+    </Appenders>
+
+    <Loggers>
+        <Root level="debug">
+            <AppenderRef ref="scribe"/>
+        </Root>
+        <!--<Logger name="com.sina" level="debug" includeLocation="false"-->
+                     <!--additivity="false">-->
+            <!--<AppenderRef ref="flume"/>-->
+        <!--</Logger>-->
+    </Loggers>
+</Configuration>
