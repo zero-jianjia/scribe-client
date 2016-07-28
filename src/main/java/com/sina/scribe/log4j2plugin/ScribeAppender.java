@@ -1,6 +1,9 @@
 package com.sina.scribe.log4j2plugin;
 
-import org.apache.logging.log4j.core.*;
+import org.apache.logging.log4j.core.Appender;
+import org.apache.logging.log4j.core.Filter;
+import org.apache.logging.log4j.core.Layout;
+import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.apache.logging.log4j.core.appender.AppenderLoggingException;
 import org.apache.logging.log4j.core.config.Node;
@@ -9,6 +12,7 @@ import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
 import org.apache.logging.log4j.core.config.plugins.PluginElement;
 import org.apache.logging.log4j.core.config.plugins.PluginFactory;
 import org.apache.logging.log4j.core.config.plugins.validation.constraints.Required;
+import org.apache.thrift.TException;
 
 import java.io.Serializable;
 
@@ -42,15 +46,15 @@ public final class ScribeAppender extends AbstractAppender {
 
     @Override
     public void append(final LogEvent event) {
-        if (event.getLoggerName().startsWith("org.apache.kafka")) {
-            LOGGER.warn("Recursive logging from [{}] for appender [{}].", event.getLoggerName(), getName());
-        } else {
-            try {
-                manager.send(event.getMessage().getFormattedMessage());
-            } catch (final Exception e) {
-                LOGGER.error("Unable to write to Kafka [{}] for appender [{}].", manager.getName(), getName(), e);
-                throw new AppenderLoggingException("Unable to write to Kafka in appender: " + e.getMessage(), e);
-            }
+        try {
+//            System.out.println(getLayout().toByteArray(event));
+//            System.out.println(new String(getLayout().toByteArray(event)));
+//            StringEncoder.toBytes(event.getMessage().getFormattedMessage(), StandardCharsets.UTF_8);
+        
+            manager.send(event.getMessage().getFormattedMessage());
+        } catch (TException e) {
+            LOGGER.error("Unable to write to Scribe for appender [{}].", getName(), e);
+            throw new AppenderLoggingException("Unable to write to Scribe in appender: " + e.getMessage(), e);
         }
     }
 

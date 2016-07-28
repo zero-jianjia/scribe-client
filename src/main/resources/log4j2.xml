@@ -1,23 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<Configuration status="debug" >
+<Configuration status="info" packages="com.sina.scribe.log4j2plugin">
     <Appenders>
-        <Scribe name="scribe" host="log_test" category="afd">
-            <PatternLayout pattern="%m%n"/>
+        <Scribe name="billing-scribe" host="10.13.88.196:1463" 
+                category="EA_IMPMONITOR">
+            <PatternLayout pattern="%m%n"/><!--%d %p [%c] - -->
         </Scribe>
-
-        <!--<Flume name="flume" >-->
-
-        <!--</Flume>-->
     </Appenders>
 
     <Loggers>
         <Root level="debug">
-            <AppenderRef ref="scribe"/>
+            <AppenderRef ref="billing-scribe"/>
         </Root>
-        <!--<Logger name="com.sina" level="debug" includeLocation="false"-->
-                     <!--additivity="false">-->
-            <!--<AppenderRef ref="flume"/>-->
-        <!--</Logger>-->
     </Loggers>
 </Configuration>

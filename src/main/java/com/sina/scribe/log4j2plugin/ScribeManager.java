@@ -1,5 +1,6 @@
 package com.sina.scribe.log4j2plugin;
 
+import com.facebook.fb303.fb_status;
 import com.sina.scribe.core.LogEntry;
 import com.sina.scribe.core.Scribe;
 import org.apache.logging.log4j.core.appender.AbstractManager;
@@ -11,10 +12,7 @@ import org.apache.thrift.transport.TTransportException;
 
 import java.io.IOException;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.util.Arrays;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
 
 /**
  * Created by jianjia1 on 16/07/28.
@@ -28,7 +26,7 @@ public class ScribeManager extends AbstractManager {
 
     public ScribeManager(String name, String host, String category) {
         super(name);
-        String[] args = host.split(";");
+        String[] args = host.split(":");
         if (args.length != 2) {
             throw new IllegalArgumentException("host is not vaild.");
         }
@@ -37,21 +35,35 @@ public class ScribeManager extends AbstractManager {
         this.scribe_port = Integer.valueOf(args[1]);
     }
 
-    public void startup() {
+    public synchronized void startup() {
         try {
-            TSocket sock = new TSocket(new Socket(scribe_ip, scribe_port));
-            transport = new TFramedTransport(sock);
+            Socket socket = new Socket(scribe_ip, scribe_port);
+            TSocket tSocket = new TSocket(socket);
+            transport = new TFramedTransport(tSocket);
+        } catch (IOException e) {
+            LOGGER.error("Socket can not connection, ip = {}, port = {}.",
+                    scribe_ip, scribe_port,
+                    e);
+            e.printStackTrace();
+        } catch (TTransportException e) {
+            LOGGER.error("TSocket can not create.", e);
+            e.printStackTrace();
+        }
+
+        if (transport != null) {
+            System.out.println(transport.isOpen());
             TBinaryProtocol protocol = new TBinaryProtocol(transport, false, false);
             client = new Scribe.Client(protocol, protocol);
-        } catch (TTransportException e) {
-            //TODO
-            e.printStackTrace();
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (Exception e) {
-            e.printStackTrace();
+        }
+        try {
+            if (client != null && client.getStatus() == fb_status.ALIVE) {
+                //client.getStatus() is blocking method.
+                LOGGER.info("scribe client created, remote socket address is {}:{}, category is {}.",
+                        scribe_ip, scribe_port, category);
+            }
+        } catch (TException ex) {
+            LOGGER.error("scribe client can not created.", ex);
+            ex.printStackTrace();
         }
     }
 
@@ -68,14 +80,17 @@ public class ScribeManager extends AbstractManager {
         startup();
     }
 
-    public void send(final String msg) throws ExecutionException, InterruptedException, TimeoutException {
+    public synchronized void send(final String msg) throws TException {
         isConnect();
         final LogEntry entry = new LogEntry(category, msg);
-        try {
-            client.send_Log(Arrays.asList(entry));
-        } catch (TException e) {
-            e.printStackTrace();
-        }
+        if (client != null)
+            try {
+                client.send_Log(Arrays.asList(entry));
+            } catch (TException ex) {
+                transport.close();
+                startup();//force to reconnect,when scribe process is killed, transport is still open.
+                throw ex;
+            }
     }
 
     @Override
@@ -83,6 +98,4 @@ public class ScribeManager extends AbstractManager {
         super.releaseSub();
         transport.close();
     }
-
-
 }
