@@ -12,7 +12,6 @@ import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
 import org.apache.logging.log4j.core.config.plugins.PluginElement;
 import org.apache.logging.log4j.core.config.plugins.PluginFactory;
 import org.apache.logging.log4j.core.config.plugins.validation.constraints.Required;
-import org.apache.thrift.TException;
 
 import java.io.Serializable;
 
@@ -33,8 +32,9 @@ public final class ScribeAppender extends AbstractAppender {
             @Required(message = "No name provided for ScribeAppender") @PluginAttribute("name") final String name,
             @PluginAttribute(value = "ignoreExceptions", defaultBoolean = true) final boolean ignoreExceptions,
             @Required(message = "No host provided for ScribeAppender") @PluginAttribute("host") final String host,
-            @Required(message = "No category provided for ScribeAppender") @PluginAttribute("category") final String category) {
-        final ScribeManager scribeManager = new ScribeManager(name, host, category);
+            @Required(message = "No category provided for ScribeAppender") @PluginAttribute("category") final String category,
+            @PluginAttribute("fileName") final String fileName) {
+        final ScribeManager scribeManager = new ScribeManager(name, host, category, fileName);
         return new ScribeAppender(name, layout, filter, ignoreExceptions, scribeManager);
     }
 
@@ -47,14 +47,21 @@ public final class ScribeAppender extends AbstractAppender {
     @Override
     public void append(final LogEvent event) {
         try {
-//            System.out.println(getLayout().toByteArray(event));
-//            System.out.println(new String(getLayout().toByteArray(event)));
-//            StringEncoder.toBytes(event.getMessage().getFormattedMessage(), StandardCharsets.UTF_8);
-        
-            manager.send(event.getMessage().getFormattedMessage());
-        } catch (TException e) {
+            //StringEncoder.toBytes(event.getMessage().getFormattedMessage(),
+            //                      StandardCharsets.UTF_8);
+            //manager.append(event.getMessage().getFormattedMessage());
+            boolean appendOK = false;
+            for (int i = 0; i < 3 && !appendOK; i++) {
+                appendOK = manager.append(getLayout().toByteArray(event));
+            }
+            if (!appendOK)
+                throw new Exception("BlockingQueue Is Full.");
+        } catch (InterruptedException e) {
             LOGGER.error("Unable to write to Scribe for appender [{}].", getName(), e);
             throw new AppenderLoggingException("Unable to write to Scribe in appender: " + e.getMessage(), e);
+        } catch (Exception ex) {
+            LOGGER.error("Unable to write to Scribe for appender [{}].", getName(), ex);
+            throw new AppenderLoggingException("Unable to write to Scribe in appender: " + ex.getMessage(), ex);
         }
     }
 

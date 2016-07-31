@@ -7,10 +7,12 @@
 package com.sina.scribe.core;
 
 
+import java.util.Map;
+import java.util.HashMap;
 import org.apache.thrift.TEnum;
 
 public enum ResultCode implements TEnum {
-  OK(0),
+  SUCCESS(0),
   TRY_LATER(1);
 
   private final int value;
@@ -33,7 +35,7 @@ public enum ResultCode implements TEnum {
   public static ResultCode findByValue(int value) { 
     switch (value) {
       case 0:
-        return OK;
+        return SUCCESS;
       case 1:
         return TRY_LATER;
       default:
