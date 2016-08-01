@@ -3,6 +3,7 @@ package com.sina.scribe;
 import com.facebook.fb303.fb_status;
 import com.sina.scribe.core.Scribe;
 import org.apache.thrift.TException;
+import org.apache.thrift.async.AsyncMethodCallback;
 import org.apache.thrift.async.TAsyncClientManager;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TProtocolFactory;
@@ -20,13 +21,15 @@ public class DefaultScribeClientFactory {
     private final String ip;
     private final int port;
     private TFramedTransport transport;
+    private TNonblockingTransport nonblockingTransport;
 
     public DefaultScribeClientFactory(String ip, int port) {
         this.ip = ip;
         this.port = port;
     }
 
-    public Scribe.Client createClient() throws IOException, TTransportException, TException {
+    public Scribe.Client createClient()
+            throws IOException, TTransportException, TException {
         // NOTE: when scribe process is killed (scribe process is running before),
         //        transport is still open.
         if (transport != null) {
@@ -45,24 +48,19 @@ public class DefaultScribeClientFactory {
         }
     }
 
-
-    public static TNonblockingTransport intTNonblockingTransport(TNonblockingTransport transport, String ip, int port)
-            throws IOException, TTransportException {
-        if (transport != null) {
-            //NOTE: when scribe process is killed (scribe process is running before),
-            //      transport is still open.
-            transport.close();
+    public Scribe.AsyncClient createAsyncClient()
+            throws IOException, TTransportException, TException {
+        if (nonblockingTransport != null) {
+            nonblockingTransport.close();
         }
-        transport = new TNonblockingSocket(ip, port);
-        return transport;
-    }
+        nonblockingTransport = new TNonblockingSocket(ip, port);
 
-    public static Scribe.AsyncClient createAsyncClient(TNonblockingTransport transport)
-            throws IOException, TTransportException {
         // 异步调用管理器
         TAsyncClientManager clientManager = new TAsyncClientManager();
         TProtocolFactory tprotocol = new TBinaryProtocol.Factory();
-        return new Scribe.AsyncClient(tprotocol, clientManager, transport);
+
+        Scribe.AsyncClient asyncClient = new Scribe.AsyncClient(tprotocol, clientManager, nonblockingTransport);
+        return asyncClient;
     }
 
     public String getIp() {
@@ -73,16 +71,17 @@ public class DefaultScribeClientFactory {
         return port;
     }
 
-    public void close(){
-        if(transport!=null){
+    public void close() {
+        if (transport != null) {
             transport.close();
+        }
+        if (nonblockingTransport != null) {
+            nonblockingTransport.close();
         }
     }
 
     @Override
     public String toString() {
-        return "Remote socket address is " +
-                ip + ":" + port +
-                ", transport.isOpen=" + transport.isOpen();
+        return "Remote socket address is " + ip + ":" + port;
     }
 }

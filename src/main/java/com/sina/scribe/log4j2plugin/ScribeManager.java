@@ -8,7 +8,6 @@ import org.apache.thrift.transport.TTransportException;
 
 import java.io.*;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -18,17 +17,18 @@ import java.util.concurrent.*;
 public class ScribeManager extends AbstractManager {
     private final DefaultScribeClientFactory clientFactory;
     private final String category;
-    private final int intervalMS;
-    private final int bufferSize;
-    private final int retries = 10;
-    private final int try_later_time = 50;
+    //private final int intervalMS;
+    private final int batchSize;
+    private final int retries = 3;
+    private final int tryLaterInterval;//ms
     private final String fileName;
     private Scribe.Client client;
 
-    private final ScheduledExecutorService sendExecutor;
+    private final ExecutorService sendExecutor;
     private final BlockingQueue<byte[]> queue = new LinkedBlockingQueue<>();
 
-    public ScribeManager(String name, String host, String category, String fileName) {
+    public ScribeManager(String name, String host, String category, String fileName,
+            int tryLaterInterval, int batchSize) {
         super(name);
         String[] args = host.split(":");
         if (args.length != 2) {
@@ -36,11 +36,12 @@ public class ScribeManager extends AbstractManager {
         }
         this.category = category;
         this.clientFactory = new DefaultScribeClientFactory(args[0], Integer.valueOf(args[1]));
-        this.intervalMS = 50;
-        this.bufferSize = 20;
-        this.fileName = fileName != null ? fileName : category + ".log";
 
-        this.sendExecutor = Executors.newSingleThreadScheduledExecutor((r) -> {
+        this.fileName = fileName != null ? fileName : category + ".log";
+        this.tryLaterInterval = tryLaterInterval > 0 ? tryLaterInterval : 1000;
+        this.batchSize = batchSize > 0 ? batchSize : 20;
+
+        this.sendExecutor = Executors.newSingleThreadExecutor((r) -> {
             Thread t = new Thread(r, "scribe-append-pool");
             t.setPriority(Thread.NORM_PRIORITY);
             return t;
@@ -49,24 +50,27 @@ public class ScribeManager extends AbstractManager {
 
     public void startup() {
         initClient();
-        sendExecutor.scheduleWithFixedDelay(() -> {
-            final List<MessageEntry> entrys = new ArrayList<>(bufferSize);
-            for (int i = 0; i < bufferSize; i++) {
-                byte[] msg = queue.poll();
-                if (msg == null) {
-                    break;
+        sendExecutor.execute(() -> {
+            for (; ; ) {
+                try {
+                    final List<MessageEntry> entrys = new ArrayList<>(batchSize);
+                    for (int i = 0; i < batchSize; i++) {
+                        byte[] msg = queue.poll();
+                        if (msg == null) {
+                            break;
+                        }
+                        entrys.add(new MessageEntry(category, ByteBuffer.wrap(Arrays.copyOf(msg, msg.length))));
+                    }
+                    if (entrys.size() > 0) {
+                        if (!send(entrys)) {
+                            writeFile(entrys);
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
-                entrys.add(new MessageEntry(category, ByteBuffer.wrap(Arrays.copyOf(msg, msg.length))));
             }
-            if (entrys.size() > 0) {
-                boolean success = send(entrys);
-                if (!success) {
-                    writeFile(entrys);
-                } else {
-                    dealFailedlMsgs();
-                }
-            }
-        }, 0, intervalMS, TimeUnit.MILLISECONDS);
+        });
     }
 
     private void initClient() {
@@ -94,8 +98,13 @@ public class ScribeManager extends AbstractManager {
     @Override
     protected void releaseSub() {
         super.releaseSub();
-        clientFactory.close();
         sendExecutor.shutdown();
+        try {
+            sendExecutor.awaitTermination(1, TimeUnit.SECONDS);
+        } catch (final InterruptedException e) {
+            LOGGER.warn("ScribeManager Thread pool failed to shut down", e);
+        }
+        clientFactory.close();
     }
 
     /**
@@ -112,13 +121,12 @@ public class ScribeManager extends AbstractManager {
         try {
             for (int i = 0; i < retries; i++) {
                 ResultCode result = client.Log(msgs);
-                System.out.println("---" + result);
                 if (result == ResultCode.SUCCESS) {
                     sendRst = true;
                     break;
                 }
                 try {
-                    TimeUnit.MILLISECONDS.sleep(try_later_time);
+                    TimeUnit.MILLISECONDS.sleep(tryLaterInterval);
                 } catch (InterruptedException e) {
                 }
             }
@@ -144,7 +152,7 @@ public class ScribeManager extends AbstractManager {
         if (!file.exists()) {
             return;
         }
-        final List<MessageEntry> entrys = new ArrayList<>(bufferSize);
+        final List<MessageEntry> entrys = new ArrayList<>(batchSize);
         String line;
         try (BufferedReader in = new BufferedReader(new FileReader(file))) {
             while ((line = in.readLine()) != null) {

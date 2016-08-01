@@ -1,12 +1,14 @@
 group 'com.sina.scribe'
-version '1.0-SNAPSHOT'
+version '0.0.1'
 
 apply plugin: 'java'
+apply plugin: 'maven-publish'
 
 [compileJava, compileTestJava]*.sourceCompatibility = '1.8'
 [compileJava, compileTestJava, javadoc]*.options*.encoding = "UTF-8"
 
 repositories {
+    mavenLocal()
     mavenCentral()
 }
 
@@ -15,11 +17,47 @@ dependencies {
     compile 'org.apache.thrift:libfb303:0.9.1'
     compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.6'
 
-    compile 'org.apache.logging.log4j:log4j-slf4j-impl:2.6'
-    
+    testCompile 'org.apache.logging.log4j:log4j-slf4j-impl:2.6'
     testCompile group: 'junit', name: 'junit', version: '4.11'
 }
+
+
+
+task initMavenDep(type: Copy) {
+    from("build/publications/mavenJava/pom-default.xml")
+    rename 'pom-default.xml', 'pom.xml'
+    into("build/classes/main/META-INF/maven/com/sina/scribe/")
+}
+
+jar.dependsOn initMavenDep
+
 task "mkdirs" << {
     sourceSets*.java.srcDirs*.each { it.mkdirs() }
     sourceSets*.resources.srcDirs*.each { it.mkdirs() }
+
 }
+
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            url "$buildDir/repo"
+        }
+    }
+}
+
+//:generatePomFileForMavenJavaPublication
+//:compileJava
+//:processResources
+//:classes
+//:copymeta
+//:jar
+//:publishMavenJavaPublicationToMavenRepository
+//:publish
+
+//gradle publish

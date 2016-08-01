@@ -18,10 +18,8 @@ import java.io.Serializable;
 /**
  * Created by jianjia1 on 16/07/28.
  */
-@Plugin(name = "Scribe",
-        category = Node.CATEGORY,
-        elementType = Appender.ELEMENT_TYPE,
-        printObject = true)
+@Plugin(name = "Scribe", category = Node.CATEGORY,
+        elementType = Appender.ELEMENT_TYPE, printObject = true)
 public final class ScribeAppender extends AbstractAppender {
     private final ScribeManager manager;
 
@@ -33,8 +31,10 @@ public final class ScribeAppender extends AbstractAppender {
             @PluginAttribute(value = "ignoreExceptions", defaultBoolean = true) final boolean ignoreExceptions,
             @Required(message = "No host provided for ScribeAppender") @PluginAttribute("host") final String host,
             @Required(message = "No category provided for ScribeAppender") @PluginAttribute("category") final String category,
-            @PluginAttribute("fileName") final String fileName) {
-        final ScribeManager scribeManager = new ScribeManager(name, host, category, fileName);
+            @PluginAttribute("fileName") final String fileName,
+            @PluginAttribute("tryLaterInterval") final int tryLaterInterval,
+            @PluginAttribute("batchSize") final int batchSize) {
+        final ScribeManager scribeManager = new ScribeManager(name, host, category, fileName, tryLaterInterval, batchSize);
         return new ScribeAppender(name, layout, filter, ignoreExceptions, scribeManager);
     }
 
