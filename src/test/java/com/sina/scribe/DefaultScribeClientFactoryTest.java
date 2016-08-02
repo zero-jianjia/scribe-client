@@ -1,7 +1,6 @@
 package com.sina.scribe;
 
 import com.sina.scribe.core.MessageEntry;
-import com.sina.scribe.core.ResultCode;
 import com.sina.scribe.core.Scribe;
 import org.apache.thrift.TException;
 import org.apache.thrift.async.AsyncMethodCallback;

@@ -41,10 +41,11 @@ public class DefaultScribeClientFactory {
         TBinaryProtocol protocol = new TBinaryProtocol(transport, false, false);
         Scribe.Client client = new Scribe.Client(protocol, protocol);
 
-        if (client.getStatus() == fb_status.ALIVE) {//client.getStatus() is blocking method.
+        fb_status status = client.getStatus();
+        if (fb_status.ALIVE == status) {//client.getStatus() is blocking method.
             return client;
         } else {
-            return null;
+            throw new TException("client.getStatus() is " + status.name());
         }
     }
 

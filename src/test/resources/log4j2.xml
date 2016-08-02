@@ -7,7 +7,7 @@
                 host="10.13.88.196:1463"
                 category="EA_IMPMONITOR"
                 tryLaterInterval="10010"
-                batchSize ="111"
+                batchSize="20"
                 fileName="test.log">
             <PatternLayout pattern="%d %p [%c] %m%n"/><!--%d %p [%c] -->
         </Scribe>
