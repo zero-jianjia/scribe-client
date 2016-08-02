@@ -55,7 +55,6 @@ public class ScribeManager extends AbstractManager {
         sendExecutor.execute(() -> {
             for (; ; ) {
                 try {
-                    System.out.println("queue = " + queue.size());
                     final List<MessageEntry> entrys = new ArrayList<>(batchSize);
                     for (int i = 0; i < batchSize; i++) {
                         byte[] msg = queue.poll();
@@ -64,7 +63,6 @@ public class ScribeManager extends AbstractManager {
                         }
                         entrys.add(new MessageEntry(category, ByteBuffer.wrap(Arrays.copyOf(msg, msg.length))));
                     }
-                    System.out.println("entrys.size() = " + entrys.size());
                     if (entrys.size() > 0) {
                         if (!send(entrys)) {
                             writeFile(entrys);
@@ -113,7 +111,6 @@ public class ScribeManager extends AbstractManager {
         }
 
         boolean sendRst = false;
-        System.out.println("send---" + client);
         try {
             for (int i = 0; i < retries; i++) {
                 ResultCode result = client.Log(msgs);
