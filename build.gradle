@@ -27,7 +27,7 @@ dependencies {
 task initMavenDep(type: Copy) {
     from("build/publications/mavenJava/pom-default.xml")
     rename 'pom-default.xml', 'pom.xml'
-    into("build/classes/main/META-INF/maven/com/sina/scribe/")
+    into("build/classes/main/META-INF/maven/com/zero/scribe/")
 }
 
 jar.dependsOn initMavenDep

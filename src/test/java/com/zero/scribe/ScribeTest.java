@@ -1,10 +1,8 @@
 package com.zero.scribe;
 
+import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.junit.Test;
-
-import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -16,15 +14,6 @@ public class ScribeTest {
 
     @Test
     public void globalTest() {
-        while(true){
-            for (int i = 0; i < 1000; i++) {
-                LOG.info("zero00" + i);
-            }
-            try {
-                TimeUnit.SECONDS.sleep(3);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
+        LOG.info("zero");
     }
 }
