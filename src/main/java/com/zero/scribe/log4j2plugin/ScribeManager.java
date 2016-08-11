@@ -22,17 +22,16 @@ public class ScribeManager extends AbstractManager {
     private final DefaultScribeClientFactory clientFactory;
     private final String category;
     private final int retries = 3;
+    private final int batchSize; //default 20
     private final String fileName;
-    private Scribe.Client client;
     private final ExecutorService sendExecutor;
+//    private final int interval;
 
-    //private final int intervalMS;
-
-    private final int batchSize;
+    private Scribe.Client client;
     private final BlockingQueue<byte[]> queue = new LinkedBlockingQueue<>();
 
     public ScribeManager(String name, String host, String category, String fileName,
-            /*int interval, */int batchSize) {
+            /*int interval,*/ int batchSize) {
         super(name);
         String[] args = host.split(":");
         if (args.length != 2) {
@@ -42,11 +41,11 @@ public class ScribeManager extends AbstractManager {
         this.clientFactory = new DefaultScribeClientFactory(args[0], Integer.valueOf(args[1]));
 
         this.fileName = fileName != null ? fileName : category + ".log";
-//        this.tryLaterInterval = tryLaterInterval > 0 ? tryLaterInterval : 1000;
+//        this.interval = interval;
         this.batchSize = batchSize > 0 ? batchSize : 20;
 
         this.sendExecutor = Executors.newSingleThreadExecutor((r) -> {
-            Thread t = new Thread(r, "scribe-append-pool");
+            Thread t = new Thread(r, this.category + "-scribe-sender-thread");
             t.setPriority(Thread.NORM_PRIORITY);
             return t;
         });
@@ -54,33 +53,27 @@ public class ScribeManager extends AbstractManager {
 
     public void startup() {
         initClient();
-        sendExecutor.execute(task());
-    }
 
-    private Runnable task() {
-        return () -> {
+        sendExecutor.execute(() -> {
             for (; ; ) {
                 try {
                     final List<MessageEntry> entrys = new ArrayList<>(batchSize);
                     for (int i = 0; i < batchSize; i++) {
-                        byte[] msg = queue.poll();
-                        if (msg == null) {
-                            break;
+                        byte[] msg = queue.poll(3000, TimeUnit.MILLISECONDS);
+                        if (msg != null) {
+                            entrys.add(new MessageEntry(category, ByteBuffer.wrap(Arrays.copyOf(msg, msg.length))));
                         }
-                        entrys.add(new MessageEntry(category, ByteBuffer.wrap(Arrays.copyOf(msg, msg.length))));
                     }
                     if (entrys.size() > 0) {
-                        if (!send(entrys)) {
+                        if (!send(entrys)) {//发送失败则写入文件
                             writeFile(entrys);
                         }
-                    } else {
-                        TimeUnit.SECONDS.sleep(10);
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
-        };
+        });
     }
 
     private void initClient() {
@@ -105,10 +98,10 @@ public class ScribeManager extends AbstractManager {
         return queue.offer(msg, 100, TimeUnit.MILLISECONDS);
     }
 
-
     /**
-     * send MessageEntry to Scribe, if fail retry until retries
-     * if TException throwed, rebuild client.
+     * send MessageEntry to Scribe.
+     * if fail, retry until retries times.
+     * if Exception throwed, rebuild client.
      * @param msgs
      */
     private boolean send(List<MessageEntry> msgs) {
@@ -125,7 +118,7 @@ public class ScribeManager extends AbstractManager {
                     break;
                 }
                 try {
-                    TimeUnit.MILLISECONDS.sleep(1000 + i * 500);
+                    TimeUnit.SECONDS.sleep(5 + i);
                 } catch (InterruptedException e) {
                 }
             }
@@ -147,7 +140,6 @@ public class ScribeManager extends AbstractManager {
         }
         clientFactory.close();
     }
-
 
     public void writeFile(List<MessageEntry> msgs) {
         try (FileWriter writer = new FileWriter(fileName, true)) {
